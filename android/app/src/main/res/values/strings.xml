@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Mitra Chat</string>
+    <string name="tagline">Simple, reliable, real-time messaging</string>
+    <string name="continue_with_google">Continue with Google</string>
+    <string name="chats">Chats</string>
+    <string name="contacts">Contacts</string>
+    <string name="settings">Settings</string>
+    <string name="search_chats">Search chats or contacts...</string>
+    <string name="type_a_message">Type a message...</string>
+    <string name="start_new_chat">Start New Chat</string>
+    <string name="block_user">Block User</string>
+    <string name="report_user">Report User</string>
+    <!-- 
+      Google Sign-In Web Client ID:
+      Replace the placeholder below with the OAuth 2.0 Web client ID from your Firebase project:
+      Firebase Console -> Authentication -> Sign-in method -> Google -> Web SDK configuration -> Web client ID.
+      DO NOT use the Android client ID here; Credential Manager requires the Web client ID as the serverClientId.
+    -->
+    <string name="default_web_client_id">YOUR_FIREBASE_WEB_CLIENT_ID.apps.googleusercontent.com</string>
+</resources>

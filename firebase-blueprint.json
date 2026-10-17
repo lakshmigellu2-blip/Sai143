@@ -1,0 +1,195 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with display name, photo, status, and privacy settings",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Authenticated Firebase User UID"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User's public display name",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "searchableUsername": {
+          "type": "string",
+          "description": "Lowercase searchable identifier for contact discovery without revealing email",
+          "pattern": "^[a-z0-9_]{3,30}$",
+          "minLength": 3,
+          "maxLength": 30
+        },
+        "email": {
+          "type": "string",
+          "description": "Private email from Google Sign-In (owner only access)"
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "Profile picture URL or empty string"
+        },
+        "status": {
+          "type": "string",
+          "description": "Custom status message (e.g., 'Available', 'In a meeting')",
+          "maxLength": 140
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of account creation"
+        },
+        "lastActive": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last activity"
+        },
+        "blockedUsers": {
+          "type": "array",
+          "description": "List of user UIDs blocked by this user"
+        }
+      },
+      "required": ["uid", "displayName", "searchableUsername", "email", "createdAt"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "One-to-one or group chat thread metadata",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique conversation ID"
+        },
+        "isGroup": {
+          "type": "boolean",
+          "description": "Whether conversation is group chat or 1-on-1"
+        },
+        "title": {
+          "type": "string",
+          "description": "Conversation title (group name or other participant name)",
+          "maxLength": 100
+        },
+        "groupPhotoUrl": {
+          "type": "string",
+          "description": "Optional group avatar URL"
+        },
+        "participantIds": {
+          "type": "array",
+          "description": "Array of participant UIDs (2 for 1-on-1, up to 100 for groups)"
+        },
+        "participantDetails": {
+          "type": "object",
+          "description": "Map of participant UID to cached display name and photoUrl"
+        },
+        "lastMessage": {
+          "type": "string",
+          "description": "Preview snippet of last sent message",
+          "maxLength": 500
+        },
+        "lastMessageTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last message"
+        },
+        "lastMessageSenderId": {
+          "type": "string",
+          "description": "UID of user who sent last message"
+        },
+        "unreadCounts": {
+          "type": "object",
+          "description": "Map of participant UID to unread message count integer"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "UID of user who created the conversation"
+        },
+        "adminIds": {
+          "type": "array",
+          "description": "List of admin UIDs for group chats"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of conversation creation"
+        }
+      },
+      "required": ["id", "isGroup", "participantIds", "createdBy", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Real-time chat message in a conversation",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique message ID"
+        },
+        "conversationId": {
+          "type": "string",
+          "description": "Parent conversation ID"
+        },
+        "senderId": {
+          "type": "string",
+          "description": "UID of message sender"
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Display name of message sender",
+          "maxLength": 64
+        },
+        "senderPhotoUrl": {
+          "type": "string",
+          "description": "Sender avatar URL"
+        },
+        "text": {
+          "type": "string",
+          "description": "Message text content",
+          "maxLength": 4000
+        },
+        "mediaUrl": {
+          "type": "string",
+          "description": "Optional Firebase Storage URL for attachment"
+        },
+        "mediaType": {
+          "type": "string",
+          "description": "MIME type or category (text, image/jpeg, image/png, audio, document)",
+          "enum": ["none", "image", "document", "audio"]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of message creation"
+        },
+        "status": {
+          "type": "string",
+          "description": "Delivery status of the message",
+          "enum": ["SENDING", "SENT", "DELIVERED", "READ"]
+        },
+        "readBy": {
+          "type": "array",
+          "description": "List of participant UIDs who have read this message"
+        },
+        "replyTo": {
+          "type": "object",
+          "description": "Optional quote metadata of replied message"
+        }
+      },
+      "required": ["id", "conversationId", "senderId", "senderName", "timestamp", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile collection indexed by Firebase Auth UID"
+    },
+    "/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Top-level conversation threads"
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Subcollection of messages inside a conversation"
+    }
+  }
+}

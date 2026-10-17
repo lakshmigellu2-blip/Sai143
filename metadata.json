@@ -1,0 +1,6 @@
+{
+  "name": "Mitra Chat",
+  "description": "Production-oriented native Android messaging app inspired by WhatsApp, built with Kotlin, Jetpack Compose, Material 3, Firebase Auth, and Cloud Firestore.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

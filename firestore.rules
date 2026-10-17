@@ -1,0 +1,178 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // User Profile Validation Helper
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'searchableUsername', 'email', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'searchableUsername', 'email', 'photoUrl', 'status', 'createdAt', 'lastActive', 'blockedUsers'])
+        && data.uid is string && data.uid == request.auth.uid
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 64
+        && data.searchableUsername is string && data.searchableUsername.size() >= 3 && data.searchableUsername.size() <= 30 && data.searchableUsername.matches('^[a-z0-9_]{3,30}$')
+        && data.email is string && data.email.size() <= 120
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 1000))
+        && (!('status' in data) || (data.status is string && data.status.size() <= 140))
+        && (!('blockedUsers' in data) || (data.blockedUsers is list && data.blockedUsers.size() <= 200));
+    }
+
+    // Conversation Validation Helper
+    function isValidConversation(data) {
+      return data.keys().hasAll(['id', 'isGroup', 'participantIds', 'createdBy', 'createdAt'])
+        && data.keys().hasOnly(['id', 'isGroup', 'title', 'groupPhotoUrl', 'participantIds', 'participantDetails', 'lastMessage', 'lastMessageTimestamp', 'lastMessageSenderId', 'unreadCounts', 'createdBy', 'adminIds', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.isGroup is bool
+        && data.participantIds is list && data.participantIds.size() >= 2 && data.participantIds.size() <= 100
+        && (!('title' in data) || (data.title is string && data.title.size() <= 100))
+        && (!('groupPhotoUrl' in data) || (data.groupPhotoUrl is string && data.groupPhotoUrl.size() <= 1000))
+        && (!('lastMessage' in data) || (data.lastMessage is string && data.lastMessage.size() <= 500))
+        && (!('lastMessageSenderId' in data) || (data.lastMessageSenderId is string && data.lastMessageSenderId.size() <= 128))
+        && (!('adminIds' in data) || (data.adminIds is list && data.adminIds.size() <= 20))
+        && data.createdBy is string && data.createdBy.size() <= 128;
+    }
+
+    // Message Validation Helper
+    function isValidMessage(data, conversationId) {
+      return data.keys().hasAll(['id', 'conversationId', 'senderId', 'senderName', 'timestamp', 'status'])
+        && data.keys().hasOnly(['id', 'conversationId', 'senderId', 'senderName', 'senderPhotoUrl', 'text', 'mediaUrl', 'mediaType', 'timestamp', 'status', 'readBy', 'replyTo'])
+        && data.id is string && data.id.size() <= 128
+        && data.conversationId is string && data.conversationId == conversationId
+        && data.senderId is string && data.senderId == request.auth.uid
+        && data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 64
+        && (!('senderPhotoUrl' in data) || (data.senderPhotoUrl is string && data.senderPhotoUrl.size() <= 1000))
+        && (!('text' in data) || (data.text is string && data.text.size() <= 4000))
+        && (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 1000))
+        && (!('mediaType' in data) || (data.mediaType in ['none', 'image', 'document', 'audio']))
+        && data.status in ['SENDING', 'SENT', 'DELIVERED', 'READ']
+        && (!('readBy' in data) || (data.readBy is list && data.readBy.size() <= 100));
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      // Single read: authenticated users can read public user profile cards
+      allow get: if isSignedIn() && isValidId(userId);
+
+      // List query: allow searching by username
+      allow list: if isSignedIn();
+
+      // Create: only the authenticated user can create their own document
+      allow create: if isOwner(userId)
+        && isValidUser(incoming())
+        && incoming().createdAt == request.time;
+
+      // Update: only the owner can modify their profile; immutable uid and createdAt
+      allow update: if isOwner(userId)
+        && isValidUser(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt;
+
+      // Delete: account deletion only by the user
+      allow delete: if isOwner(userId);
+    }
+
+    // 2. Conversations Collection
+    match /conversations/{conversationId} {
+      // Membership check helper
+      function isParticipant() {
+        return isSignedIn() && request.auth.uid in existing().participantIds;
+      }
+
+      function willBeParticipant() {
+        return isSignedIn() && request.auth.uid in incoming().participantIds;
+      }
+
+      // Read single conversation: only participants
+      allow get: if isValidId(conversationId) && isParticipant();
+
+      // Query conversations: strictly queries where user is participant
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+
+      // Create conversation: sender must be in participantIds; 1-on-1 must have 2 distinct users
+      allow create: if isValidId(conversationId)
+        && willBeParticipant()
+        && isValidConversation(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && (!incoming().isGroup ? (incoming().participantIds.size() == 2 && incoming().participantIds[0] != incoming().participantIds[1]) : true);
+
+      // Update conversation: participant updates last message, unread counts, or metadata
+      allow update: if isValidId(conversationId)
+        && isParticipant()
+        && isValidConversation(incoming())
+        && incoming().id == existing().id
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt;
+
+      // Delete conversation: only admin/creator
+      allow delete: if isValidId(conversationId)
+        && isParticipant()
+        && (existing().createdBy == request.auth.uid || ('adminIds' in existing() && request.auth.uid in existing().adminIds));
+
+      // 3. Subcollection: Messages
+      match /messages/{messageId} {
+        // Parent conversation verification
+        function getParentConversation() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+        }
+
+        function isParentParticipant() {
+          return isSignedIn() && request.auth.uid in getParentConversation().participantIds;
+        }
+
+        // Read messages: must be participant of parent conversation
+        allow get: if isValidId(messageId) && isParentParticipant();
+        allow list: if isParentParticipant();
+
+        // Create message: must be participant, senderId must match auth.uid, server timestamp
+        allow create: if isValidId(messageId)
+          && isParentParticipant()
+          && incoming().senderId == request.auth.uid
+          && isValidMessage(incoming(), conversationId)
+          && incoming().timestamp == request.time;
+
+        // Update message: sender can edit, or recipient can mark read status
+        allow update: if isValidId(messageId)
+          && isParentParticipant()
+          && (
+            // Action 1: Read receipt update by any participant
+            (incoming().diff(existing()).affectedKeys().hasOnly(['readBy', 'status'])
+              && incoming().status in ['SENT', 'DELIVERED', 'READ']) ||
+            // Action 2: Sender text update
+            (existing().senderId == request.auth.uid && isValidMessage(incoming(), conversationId)
+              && incoming().senderId == existing().senderId
+              && incoming().timestamp == existing().timestamp)
+          );
+
+        // Delete message: sender can delete for everyone or unsend
+        allow delete: if isValidId(messageId)
+          && isParentParticipant()
+          && existing().senderId == request.auth.uid;
+      }
+    }
+  }
+}

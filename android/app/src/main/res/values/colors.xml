@@ -1,0 +1,11 @@
+<resources>
+    <color name="teal_primary">#00A884</color>
+    <color name="teal_dark">#008069</color>
+    <color name="teal_light">#25D366</color>
+    <color name="background_light">#FFFFFF</color>
+    <color name="background_dark">#121B22</color>
+    <color name="chat_bubble_sent">#E7FFDB</color>
+    <color name="chat_bubble_received">#FFFFFF</color>
+    <color name="chat_bubble_sent_dark">#005C4B</color>
+    <color name="chat_bubble_received_dark">#202C33</color>
+</resources>

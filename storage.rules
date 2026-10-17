@@ -1,0 +1,35 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Profile photos: /users/{userId}/profile.jpg
+    match /users/{userId}/{fileName} {
+      // Anyone signed in can view avatars
+      allow read: if isSignedIn();
+      // Only the user can upload their own profile photo (max 5MB, image only)
+      allow write: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Conversation attachments: /conversations/{conversationId}/{messageId}/{fileName}
+    match /conversations/{conversationId}/{messageId}/{fileName} {
+      // Signed in users can download attachments (authenticated URLs)
+      allow read: if isSignedIn();
+      // Max 25MB attachment, validated MIME type
+      allow write: if isSignedIn()
+        && request.resource.size < 25 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('image/.*') ||
+          request.resource.contentType.matches('application/pdf') ||
+          request.resource.contentType.matches('audio/.*') ||
+          request.resource.contentType.matches('video/.*')
+        );
+    }
+  }
+}
