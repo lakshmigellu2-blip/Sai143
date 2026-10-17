@@ -255,34 +255,46 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+          cache: 'gradle'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
 
-      - name: Verify google-services.json
+      - name: Prepare Android Project & Firebase Config
         run: |
-          if [ -f "google-services.json" ] && [ ! -f "android/app/google-services.json" ]; then
-            cp google-services.json android/app/google-services.json
+          if [ -d "android" ]; then
+            PROJECT_DIR="android"
+          else
+            PROJECT_DIR="."
           fi
-          if [ ! -f "android/app/google-services.json" ]; then
-            cp android/app/google-services.json.template android/app/google-services.json
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+
+          mkdir -p "$PROJECT_DIR/app"
+
+          if [ ! -f "$PROJECT_DIR/app/google-services.json" ]; then
+            if [ -f "$PROJECT_DIR/google-services.json" ]; then
+              cp "$PROJECT_DIR/google-services.json" "$PROJECT_DIR/app/google-services.json"
+            elif [ -f "google-services.json" ]; then
+              cp "google-services.json" "$PROJECT_DIR/app/google-services.json"
+            elif [ -f "$PROJECT_DIR/app/google-services.json.template" ]; then
+              cp "$PROJECT_DIR/app/google-services.json.template" "$PROJECT_DIR/app/google-services.json"
+            fi
           fi
+
+          yes | sdkmanager --licenses || true
 
       - name: Build Debug APK
         run: |
-          cd android
-          gradle assembleDebug --stacktrace
+          cd $PROJECT_DIR
+          gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: mitra-chat-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: '**/build/outputs/apk/debug/*.apk'
           retention-days: 14
 `
       );
