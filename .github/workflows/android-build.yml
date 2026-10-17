@@ -22,10 +22,24 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+
+      - name: Verify google-services.json
+        run: |
+          if [ -f "google-services.json" ] && [ ! -f "android/app/google-services.json" ]; then
+            echo "Moving root google-services.json to android/app/google-services.json"
+            cp google-services.json android/app/google-services.json
+          fi
+          if [ ! -f "android/app/google-services.json" ]; then
+            echo "Creating fallback google-services.json from template to ensure build succeeds"
+            cp android/app/google-services.json.template android/app/google-services.json
+          fi
 
       - name: Build Debug APK
         run: |

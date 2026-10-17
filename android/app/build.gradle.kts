@@ -33,7 +33,6 @@ android {
             signingConfig = signingConfigs.getByName("debug") // Configurable for Play Console release keystore
         }
         debug {
-            applicationIdSuffix = ".debug"
             isDebuggable = true
         }
     }

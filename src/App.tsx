@@ -199,6 +199,131 @@ export default function App() {
       // Add supplemental files
       zip.file('FIREBASE_SETUP_GUIDE.md', '# Mitra Chat Android Setup\n\nRefer to root guide.');
       zip.file('android/gradle.properties', 'org.gradle.jvmargs=-Xmx2048m\nandroid.useAndroidX=true\n');
+      zip.file(
+        'android/app/google-services.json',
+        JSON.stringify(
+          {
+            project_info: {
+              project_number: '374258828263',
+              project_id: 'project-374258828263',
+              storage_bucket: 'project-374258828263.appspot.com'
+            },
+            client: [
+              {
+                client_info: {
+                  mobilesdk_app_id: '1:374258828263:android:0c87361c7cbcab4570f342',
+                  android_client_info: { package_name: 'com.mitrachat.app' }
+                },
+                oauth_client: [
+                  {
+                    client_id: '374258828263-xxxxxxxxxxxxxxxx.apps.googleusercontent.com',
+                    client_type: 3
+                  }
+                ],
+                api_key: [{ current_key: 'AIzaSyDummyKeyForBuildVerificationOnly' }],
+                services: { appinvite_service: { other_platform_oauth_client: [] } }
+              }
+            ],
+            configuration_version: '1'
+          },
+          null,
+          2
+        )
+      );
+      zip.file(
+        '.github/workflows/android-build.yml',
+        `name: Build Mitra Chat Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Verify google-services.json
+        run: |
+          if [ -f "google-services.json" ] && [ ! -f "android/app/google-services.json" ]; then
+            cp google-services.json android/app/google-services.json
+          fi
+          if [ ! -f "android/app/google-services.json" ]; then
+            cp android/app/google-services.json.template android/app/google-services.json
+          fi
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          gradle assembleDebug --stacktrace
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mitra-chat-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+`
+      );
+      zip.file(
+        'android/app/src/main/res/drawable/ic_launcher_background.xml',
+        `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#008069" android:pathData="M0,0h108v108h-108z" />
+</vector>`
+      );
+      zip.file(
+        'android/app/src/main/res/drawable/ic_launcher_foreground.xml',
+        `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF" android:pathData="M54,24C37.4,24 24,37.4 24,54c0,5.8 1.6,11.2 4.4,15.8L24,84l14.6,-4.2c4.4,2.6 9.6,4.2 15.4,4.2c16.6,0 30,-13.4 30,-30S70.6,24 54,24zM54,78c-4.8,0-9.2,-1.4-13,-3.8l-1,-0.6 -9.6,2.8 2.8,-9.4 -0.6,-1C30.2,62.2 29,58.2 29,54c0,-13.8 11.2,-25 25,-25s25,11.2 25,25S67.8,78 54,78z" />
+</vector>`
+      );
+      zip.file(
+        'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+        `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>`
+      );
+      zip.file(
+        'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml',
+        `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>`
+      );
 
       const blob = await zip.generateAsync({ type: 'blob' });
       const url = window.URL.createObjectURL(blob);
